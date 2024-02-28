@@ -1,0 +1,56 @@
+name: Django CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    name: Run Django Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_DB: mydb
+          POSTGRES_USER: myuser
+          POSTGRES_PASSWORD: mypassword
+        ports:
+          - 5432:5432
+
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.11.2
+
+      - name: Install pipenv
+        run: |
+          python -m pip install pipenv
+        env:
+          PATH: ${{ github.workspace }}/.venv/bin:$PATH
+
+      - name: Install dependencies with pipenv
+        run: |
+          cd ${{ github.workspace }}
+          pipenv install --dev
+        working-directory: ${{ github.workspace }}/backend
+
+      - name: Create .env file
+        run: |
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > ${{ github.workspace }}/backend/.env
+          echo "DEBUG=${DEBUG}" >> ${{ github.workspace }}/backend/.env
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> ${{ github.workspace }}/backend/.env          
+        working-directory: ${{ github.workspace }}/backend
+
+      - name: Run Django Tests
+        run: |
+          pipenv run python manage.py test
+        working-directory: ${{ github.workspace }}/backend
